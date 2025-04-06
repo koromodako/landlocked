@@ -1,0 +1,10 @@
+#ifndef NOBIND_H
+#define NOBIND_H
+
+#define NOBIND_VERSION_MAJOR    @NOBIND_VERSION_MAJOR@
+#define NOBIND_VERSION_MINOR    @NOBIND_VERSION_MINOR@
+
+void __nobind_destructor(void) __attribute__((destructor));
+void __nobind_constructor(void) __attribute__((constructor));
+
+#endif /* NOBIND_H */

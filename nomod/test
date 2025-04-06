@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+echo -e "\e[0;34m>>> nomod ok test\e[0m"
+lsmod > /tmp/lsmod.out && grep -P '^xor\s+\d+' /tmp/lsmod.out
+echo -e "\e[0;34m>>> nomod ko test\e[0m"
+LD_PRELOAD=./nomod.so lsmod > /tmp/lsmod.out && grep -P '^xor\s+\d+' /tmp/lsmod.out

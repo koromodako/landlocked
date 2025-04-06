@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+echo -e "\e[0;34m>>> connect denied test\e[0m"
+LD_PRELOAD=./noconnect.so nc -z -v 127.0.0.1 22
+echo -e "\e[0;34m>>> connect allowed test\e[0m"
+nc -z -v 127.0.0.1 22

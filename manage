@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Manage
+"""
+from argparse import ArgumentParser
+from os import urandom
+from base64 import b64encode
+from gzip import compress
+from pathlib import Path
+from shutil import rmtree
+from subprocess import run
+from textwrap import wrap
+from jinja2 import Template
+
+
+_SCRIPT_TEMPLATE = Template(
+'''
+#!/usr/bin/env bash
+# prevent PEBCAK
+echo 'key: {{ key }}'
+if [ $(id -u) -ne 0 ]; then
+    echo "please run as root"
+    exit 1
+fi
+if [ "$1" != "{{ key }}" ]; then
+    echo "preventing misfire"
+    exit 1
+fi
+{%- if extra_files %}
+# deploy extra files
+{%- for extra_file in extra_files %}
+cat <<EOF | base64 -d | gunzip > "{{ extra_file.d_path }}"
+{{ extra_file.s_b64 }}
+EOF
+{%- endfor %}
+{%- endif %}
+# deploy shared object
+cat <<EOF | base64 -d | gunzip > "/{{ so_name }}"
+{{ so_b64 }}
+EOF
+{% if disable_root %}
+passwd -l root
+{% endif %}
+chmod 644 "/{{ so_name }}"
+# enable system-wide preloading
+if [ -f /etc/ld.so.preload ] && [ ! -f /etc/.ld.so.preload.bak ]; then
+    cp /etc/ld.so.preload /etc/.ld.so.preload.bak
+fi
+echo "/{{ so_name }}" > /etc/ld.so.preload
+echo 'installed.'
+'''
+)
+
+
+def _test_cmd(args, project: Path):
+    test = project / 'test'
+    if test.is_file():
+        run(['./test'], check=True, cwd=project)
+
+
+def _build_cmd(args, project: Path):
+    argv = ['cmake']
+    if args.options:
+        for option in args.options.split(','):
+            argv.extend(['-D', f'{option.upper()}=1'])
+    argv.append('.')
+    run(
+        argv, check=True, cwd=project
+    )
+    run(['make'], check=True, cwd=project)
+
+
+def _clean_cmd(args, project: Path):
+    cmake_files = project / 'CMakeFiles'
+    if cmake_files.is_dir():
+        rmtree(cmake_files)
+    filenames = [
+        'cmake_install.cmake',
+        'CMakeCache.txt',
+        'landlocker.h',
+        'Makefile',
+    ]
+    for filepath in project.glob('*.so'):
+        filenames.append(filepath.name)
+    for filepath in project.glob('setup_*.sh'):
+        filenames.append(filepath.name)
+    for filename in filenames:
+        filepath = project / filename
+        if filepath.is_file():
+            filepath.unlink()
+
+
+def _bundle_dat(filepath: Path):
+    gzipped = compress(filepath.read_bytes())
+    b64data = b64encode(gzipped).decode('utf-8')
+    return '\n'.join(wrap(b64data, width=120))
+
+
+def _bundle_extra(project: Path):
+    extra_files = []
+    extra = project / '__extra__'
+    if extra.is_file():
+        with extra.open('r') as fobj:
+            for line in fobj:
+                line = line.strip()
+                if not line or line.count(':') != 1:
+                    continue
+                s_path, d_path = line.split(':')
+                s_path = project / s_path
+                if not s_path.is_file():
+                    continue
+                s_b64 = _bundle_dat(s_path)
+                extra_files.append({'d_path': d_path, 's_b64': s_b64})
+    return extra_files
+
+
+def _bundle_cmd(args, project: Path):
+    try:
+        so_path = next(project.glob('*.so'))
+    except StopIteration:
+        return
+    output = project / f'setup_{so_path.stem}.sh'
+    so_b64 = _bundle_dat(so_path)
+    extra_files = _bundle_extra(project)
+    script = _SCRIPT_TEMPLATE.render(
+        {
+            'key': urandom(2).hex(),
+            'so_b64': so_b64,
+            'so_name': so_path.name,
+            'extra_files': extra_files,
+        }
+    )
+    output.write_text(script.lstrip(), encoding='utf-8')
+
+
+def _parse_args():
+    parser = ArgumentParser()
+    parser.add_argument('project', type=Path)
+    cmd = parser.add_subparsers(dest='cmd', help="Command")
+    cmd.required = True
+    test = cmd.add_parser('test', help="Test projects")
+    test.set_defaults(func=_test_cmd)
+    build = cmd.add_parser('build', help="Build projects")
+    build.add_argument('--options', '-o', help="Build options")
+    build.set_defaults(func=_build_cmd)
+    clean = cmd.add_parser('clean', help="Clean projects")
+    clean.set_defaults(func=_clean_cmd)
+    bundle = cmd.add_parser('bundle', help="Bundle projects")
+    bundle.set_defaults(func=_bundle_cmd)
+    return parser.parse_args()
+
+
+def app():
+    args = _parse_args()
+    projects = [args.project]
+    if args.project.name == '*':
+        projects = [
+            project
+            for project in args.project.parent.glob('*')
+            if project.is_dir() and not project.name[0] in '_.'
+        ]
+    for project in projects:
+        args.func(args, project)
+
+
+if __name__ == '__main__':
+    app()

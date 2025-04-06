@@ -1,0 +1,10 @@
+#ifndef LOCKDOWN_H
+#define LOCKDOWN_H
+
+#define LOCKDOWN_VERSION_MAJOR    @LOCKDOWN_VERSION_MAJOR@
+#define LOCKDOWN_VERSION_MINOR    @LOCKDOWN_VERSION_MINOR@
+
+void __lockdown_destructor(void) __attribute__((destructor));
+void __lockdown_constructor(void) __attribute__((constructor));
+
+#endif /* LOCKDOWN_H */

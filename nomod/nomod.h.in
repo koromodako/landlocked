@@ -1,0 +1,10 @@
+#ifndef NOMOD_H
+#define NOMOD_H
+
+#define NOMOD_VERSION_MAJOR    @NOMOD_VERSION_MAJOR@
+#define NOMOD_VERSION_MINOR    @NOMOD_VERSION_MINOR@
+
+void __nomod_destructor(void) __attribute__((destructor));
+void __nomod_constructor(void) __attribute__((constructor));
+
+#endif /* NOMOD_H */

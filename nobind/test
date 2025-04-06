@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+echo -e "\e[0;34m>>> bind denied test\e[0m"
+LD_PRELOAD=./nobind.so nc -lvp 10000
+echo -e "\e[0;34m>>> bind allowed test (hit Ctrl+C to stop)\e[0m"
+nc -lvp 10000 &
+sleep 2
+echo | nc -N 127.0.0.1 10000

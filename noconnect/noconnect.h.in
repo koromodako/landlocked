@@ -1,0 +1,10 @@
+#ifndef NOCONNECT_H
+#define NOCONNECT_H
+
+#define NOCONNECT_VERSION_MAJOR    @NOCONNECT_VERSION_MAJOR@
+#define NOCONNECT_VERSION_MINOR    @NOCONNECT_VERSION_MINOR@
+
+void __noconnect_destructor(void) __attribute__((destructor));
+void __noconnect_constructor(void) __attribute__((constructor));
+
+#endif /* NOCONNECT_H */

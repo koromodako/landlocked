@@ -1,0 +1,10 @@
+#ifndef NOEXEC_H
+#define NOEXEC_H
+
+#define NOEXEC_VERSION_MAJOR    @NOEXEC_VERSION_MAJOR@
+#define NOEXEC_VERSION_MINOR    @NOEXEC_VERSION_MINOR@
+
+void __noexec_destructor(void) __attribute__((destructor));
+void __noexec_constructor(void) __attribute__((constructor));
+
+#endif /* NOEXEC_H */

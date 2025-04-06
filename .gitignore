@@ -1,0 +1,13 @@
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake 
+lockdown.h
+nobind.h
+noconnect.h
+noexec.h
+nomod.h
+persist.h
+readonly.h
+*.so
+setup_*.sh
