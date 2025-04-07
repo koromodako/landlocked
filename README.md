@@ -83,7 +83,7 @@ The dynamic loader comes with another interesting mechanism called `preloading`
 
 ### Shared Object Constructor
 
-GNU C allows to add attributes to functions such as `__attribute__((constructor))` which is the one that will be used in this research.
+GNU C allows to add attributes to functions such as `__attribute__((constructor))` which is the one that will be used in this project.
 
 Here is the description found in the [documentation](https://gcc.gnu.org/onlinedocs/gcc-14.2.0/gcc/Common-Function-Attributes.html)
 
@@ -162,7 +162,7 @@ end:
 
 When compiled we obtain a shared object called `noconnect.so` that we can preload into any DLE on the system.
 
-Assuming that a SSH server is listening locally on port 22. Here is a normal run for `nc` against SSH port on the loopback.
+Assuming that a SSH server is listening locally on port 22. A normal run for `nc` against SSH port on the loopback looks like the following.
 
 ```bash
 nc -z -v 127.0.0.1 22
@@ -180,7 +180,7 @@ LD_PRELOAD=./noconnect.so nc -z -v 127.0.0.1 22
 nc: connect to 127.0.0.1 port 22 (tcp) failed: Permission denied
 ```
 
-Here, `LD_PRELOAD` environment variable allowed to preload our Landlock plugin for `nc` as specified in the command line. As any environment variable, it can be set through systemd service configuration files, wrappers or user shell profile files.
+Here, `LD_PRELOAD` environment variable allowed to preload our LSO for `nc` as specified in the command line. As any environment variable, it can be set through systemd service configuration files, wrappers or user shell profile files.
 
 Finally let's see what happens when `busybox nc` is used with the `LD_PRELOAD` environment variable.
 
@@ -192,7 +192,7 @@ SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.8
 ^C
 ```
 
-This last test highlights an important limitation, **SLEs are immune to preloading** because they do not require the dynamic loader.
+This test highlights an important limitation, **SLEs are immune to preloading** because they do not require the dynamic loader to run.
 
 You can identify SLEs in your system using the following command
 
@@ -202,7 +202,7 @@ find / -type f -executable -print -exec ldd {} \; 2>&1 |
     grep '^/'
 ```
 
-What about a system-wide preloaded Landlock plugin? The _one LSO to rule all DLEs_ scenario can be implemented thanks to `/etc/ld.so.preload`. This configuration file instructs the dynamic loader to preload our LSO in every userland process, even root's processes. When using this technique, note that already running processes based on DLEs are not affected by system-wide preloading. Beware of this technique, depending on your LSO, doing this may have a significant impact on overall system performance.
+What about a system-wide preloaded LSO? The _one LSO to rule all DLEs_ scenario can be implemented thanks to `/etc/ld.so.preload`. This configuration file instructs the dynamic loader to preload our LSO in every userland process, even root's processes. When using this technique, note that already running processes based on DLEs are not affected by system-wide preloading. Beware of this technique, depending on your LSO, doing this may have a significant impact on overall system performance.
 
 
 ## LSO Use Cases
@@ -214,12 +214,12 @@ LSO use cases are both defensive and offensive. Despite the SLE limitation, we c
 
 #### Landlock As Advertised
 
-Developers can use Landlock policies to mitigate post-exploitation actions when a vulnerability is discovered in their project. It can also protect from unexpected behavior related to bugs that are not vulnerabilities.
+Developers can use Landlock policies to mitigate post-exploitation actions when a vulnerability is discovered in their project. It can also protect from unexpected behavior related to other kinds of bugs and misconfiguration.
 
 
 #### Landlock The Careless
 
-If the developers of your favorite project do not care about security you can enforce a Landlock policy as long as their software rely on DLEs.
+If the developers of your favorite project do not care about security you can enforce a Landlock policy as long as the software rely on DLEs.
 
 This can be applied to systemd services and other programs individually through the `LD_PRELOAD` environment variable and configuration files.
 
@@ -233,12 +233,12 @@ Nothing new in this section, every use case can already be implemented without u
 
 In this scenario one wants to reach a state of reversible paralysis for a machine.
 
-As a proof of concept, [lockdown](lockdown/) implements system-wide restrictions that disable a system and prevent removal of its components through simple efficient means.
+As a proof of concept, [lockdown](lockdown/) implements system-wide restrictions that disable a system and prevent removal of its components using Landlock.
 
-It is reversible in the way that it can be removed without data loss
+It is reversible in the way that it can be removed without data loss using one of the following:
 
-- edit boot command to drop into a shell and use a SLE to remove lockdown components
-- booting on a live usb and remove lockdown components
+- edit boot command to drop into a shell then use a SLE to remove lockdown components
+- booting on a live usb then remove lockdown components
 
 These deletion techniques do not scale well though. It could be challenging to fix an important quantity of infected machines.
 
@@ -254,14 +254,14 @@ As a proof of concept, [noconnect](noconnect/) compiled with `random` option wil
 
 In this scenario one wants to slightly modify the behavior of a program.
 
-An LSO can gather context on the process it is preloaded for using the following functions:
+An LSO can gather context on the process it is preloaded for using functions such as:
 
 - [getuid(2)](https://www.man7.org/linux/man-pages/man2/getuid.2.html)
 - [getpid(2)](https://www.man7.org/linux/man-pages/man2/getpid.2.html)
 - [getppid(2)](https://www.man7.org/linux/man-pages/man2/getppid.2.html)
 - [realpath(3)](https://www.man7.org/linux/man-pages/man3/realpath.3.html)
 
-This means that a system-wide Landlock plugin can behave differently depending on the program it is preloaded for.
+This means that a system-wide LSO can behave differently depending on the program it is preloaded for.
 
 As a proof of concept, [nomod](nomod/) applies a landlock policy only when `/usr/bin/kmod` is used and denies read access to some files in `/sys/module/xor`.
 
@@ -272,7 +272,7 @@ lsmod > /tmp/lsmod.out && grep -P '^xor\s+\d+' /tmp/lsmod.out
 xor                    20480  1 async_xor
 ```
 
-The normal behavior of `lsmod` is to exit with code `0` and display a count of 4 modules.
+The normal behavior of `lsmod` is to exit with code zero and display a count of 1 for `xor` module.
 
 ```bash
 LD_PRELOAD=./nomod/nomod.so lsmod > /tmp/lsmod.out && grep -P '^xor\s+\d+' /tmp/lsmod.out
@@ -281,10 +281,10 @@ LD_PRELOAD=./nomod/nomod.so lsmod > /tmp/lsmod.out && grep -P '^xor\s+\d+' /tmp/
 xor                    20480  -13 async_xor
 ```
 
-We notice that once preloaded, our LSO modifies successfully the output of `lsmod` without changing its exit code `0`.
+We notice that once preloaded, our LSO modifies successfully the output of `lsmod` without changing its zero exit code but changing the count to `-13`. 
 
 > [!IMPORTANT]
-> This is just an example of a DLE whose behavior can be modified using this technique and the impact depends heavily on the specifics of the situation yet it may well be severe.
+> This is just one example of a DLE whose behavior can be silently modified using this technique and the impact depends heavily on the specifics of the situation yet it may well be severe.
 
 
 ## Detecting Landlock Use
